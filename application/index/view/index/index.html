@@ -1,0 +1,284 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="format-detection" content="telephone=no" />
+    <title>沟通中</title>
+    <link rel="stylesheet" type="text/css" href="__STATIC__/newcj/css/themes.css?v=2017129">
+    <link rel="stylesheet" type="text/css" href="__STATIC__/newcj/css/h5app.css">
+    <link rel="stylesheet" type="text/css" href="__STATIC__/newcj/fonts/iconfont.css?v=2016070717">
+    <script src="__STATIC__/newcj/js/jquery.min2.js"></script>
+    <script src="__STATIC__/newcj/js/dist/flexible/flexible_css.debug.js"></script>
+    <script src="__STATIC__/newcj/js/dist/flexible/flexible.debug.js"></script>
+    <script src="__STATIC__/qqFace/js/jquery.qqFace.js"></script>
+    <style>
+        .qqFace { margin-top: -180px; background: #fff; padding: 2px; border: 1px #dfe6f6 solid; }
+        .qqFace table td { padding: 0px; }
+        .qqFace table td img { cursor: pointer; border: 1px #fff solid; }
+        .qqFace table td img:hover { border: 1px #0066cc solid; }
+    </style>
+</head>
+<body ontouchstart>
+<div class='fui-page-group'>
+<div class='fui-page chatDetail-page'>
+    <div class="chat-header flex">
+        <i class="icon icon-toleft t-48"></i>
+        <span class="shop-titlte t-30">商店</span>
+        <span class="shop-online t-26"></span>
+        <span class="into-shop">进店</span>
+    </div>
+    <div class="fui-content navbar" style="padding:1.2rem 0 1.35rem 0;">
+        <div class="chat-content">
+            <p style="display: none;text-align: center;padding-top: 0.5rem" id="more"><a>加载更多</a></p>
+            <p class="chat-time"><span class="time">2017-11-12</span></p>
+
+
+        </div>
+    </div>
+    <div class="fix-send flex footer-bar">
+        <i class="icon icon-emoji1 t-50"></i>
+        <input class="send-input t-28" id="saytext" maxlength="200">
+        <input type="file"  name="pic" id="file"  accept="image/gif,image/jpeg,image/jpg,image/png,image/svg" style="display: none;" />
+        <i class="icon img_up icon-add t-50" style="color: #888;"></i>
+        <span class="send-btn">发送</span>
+    </div>
+</div>
+</div>
+<script>
+    var from_id={$from_id};
+    var to_id={$to_id};
+    var API_URL='http://192.168.1.7/api/chat/';
+    var ws=new WebSocket('ws://192.168.1.7:8282');
+    var from_head_img='';
+    var to_head_img='';
+    var online=0;
+    ws.onmessage=function (e) {
+        var data=eval("("+e.data+")");
+        switch (data.type) {
+            case 'init':
+                var bind='{"type":"bind","from_id":"'+from_id+'"}';
+                ws.send(bind);
+                get_head_img();
+                get_user_name(to_id);
+                get_chat_data();
+                var online='{"type":"online","from_id":"'+from_id+'","to_id":"'+to_id+'"}';
+                ws.send(online);
+                changeNotRead();
+                return;
+            case 'text':
+                if(to_id==data.from_id)
+                {
+                    $(".chat-content").append('<div class="chat-text section-left flex"><span class="char-img" style="background-image: url('+to_head_img+')"></span>' + '<span class="text"><i class="icon icon-sanjiao4 t-32"></i>'+replace_em(data.data)+'</span></div>');
+                    $('.chat-content').scrollTop($('.chat-content')[0].scrollHeight);
+                   //setTimeout(changeNotRead,1000)
+                    changeNotRead();
+                }
+                return;
+            case 'save':
+                save_message(data);
+
+                if(data.is_read==1)
+                {
+                    online=1;
+                    $(".shop-online").text('在线');
+                }
+                else
+                {
+                    online=0;
+                    $(".shop-online").text('离线');
+                }
+                return;
+            case 'online':
+                if(data.status==1)
+                {
+                    online=1;
+                    $(".shop-online").text('在线');
+                }
+                else
+                {
+                    online=0;
+                    $(".shop-online").text('离线');
+                }
+                return;
+            case 'say_img':
+                $(".chat-content").append('<div class="chat-text section-left flex"><span class="char-img" style="background-image: url('+to_head_img+')"></span>' + '<span class="text"><i class="icon icon-sanjiao4 t-32"></i><img width="100px" height="100px" src="__ROOT__/uploads/'+data.img_name+'"></span></div>');
+                $(".chat-content").scrollTop($('.chat-content')[0].scrollHeight);
+                changeNotRead();
+                return;
+
+
+
+        }
+    }
+    function changeNotRead()
+    {
+        $.post(
+            API_URL+'change_not_read',
+            {"from_id":from_id,"to_id":to_id},
+            function(){},
+            'json'
+
+        );
+    }
+    function save_message(message)
+    {
+        $.post(
+            API_URL+"save_message",
+            message,
+            function(){
+            },
+            'json'
+        )
+    }
+    function get_head_img()
+    {
+        $.post(
+            API_URL+"get_head_img",
+            {"from_id":from_id,"to_id":to_id},
+            function(e){
+                from_head_img=e.from_head_img;
+                to_head_img=e.to_head_img;
+            },
+            'json'
+        )
+    }
+
+    function get_user_name(to_id)
+    {
+        $.post(
+            API_URL+"get_user_name",
+            {"to_id":to_id},
+            function(e){
+               $(".shop-titlte").text("与"+e.nickname+"聊天中");
+            },
+            'json'
+        )
+    }
+    function get_chat_data()
+    {
+        $.post(
+            API_URL+"get_chat_data",
+            {"from_id":from_id,"to_id":to_id},
+            function(e){
+             for(i in e)
+             {
+                 if(e[i].fromid==from_id)
+                 {
+                     if(e[i].type==1)
+                     {
+                         $('.chat-content').append('<div class="chat-text section-right flex"><span class="text"><i class="icon icon-sanjiao3 t-32"></i>'+replace_em(e[i].content)+'</span><span class="char-img" style="background-image: url('+from_head_img+')"></span></div>');
+                     }
+                     else
+                     {
+                         $('.chat-content').append('<div class="chat-text section-right flex"><span class="text"><i class="icon icon-sanjiao3 t-32"></i><img width="100px" height="100px" src="__ROOT__/uploads/'+e[i].content+'"></span><span class="char-img" style="background-image: url('+from_head_img+')"></span></div>');
+                     }
+
+                 }
+                 else
+                 {
+                     if(e[i].type==1)
+                     {
+                         $(".chat-content").append('<div class="chat-text section-left flex"><span class="char-img" style="background-image: url('+to_head_img+')"></span>' + '<span class="text"><i class="icon icon-sanjiao4 t-32"></i>'+replace_em(e[i].content)+'</span></div>');
+                     }
+                     else
+                     {
+                         $(".chat-content").append('<div class="chat-text section-left flex"><span class="char-img" style="background-image: url('+to_head_img+')"></span>' + '<span class="text"><i class="icon icon-sanjiao4 t-32"></i><img width="100px" height="100px" src="__ROOT__/uploads/'+e[i].content+'"></span></div>');
+                     }
+
+
+                 }
+
+             }
+                $('.chat-content').scrollTop($('.chat-content')[0].scrollHeight);
+
+            },
+            'json'
+        )
+    }
+    $(".send-btn").click(function(){
+        var text=$('.send-input').val();
+        if(text=='')
+        {
+            return;
+        }
+       var  message='{"type":"say","data":"'+text+'","from_id":"'+from_id+'","to_id":"'+to_id+'"}';
+       $('.chat-content').append('<div class="chat-text section-right flex"><span class="text"><i class="icon icon-sanjiao3 t-32"></i>'+replace_em(text)+'</span><span class="char-img" style="background-image: url('+from_head_img+')"></span></div>');
+        ws.send(message);
+        $('.chat-content').scrollTop($('.chat-content')[0].scrollHeight);
+        $('.send-input').val('');
+    })
+    $(".img_up").click(function(){
+        $("#file").click();
+    })
+    $("#file").change(function(){
+        formata=new FormData();
+        formata.append('from_id',from_id);
+        formata.append('to_id',to_id);
+        formata.append('online',online);
+        formata.append('file',$("#file")[0].files[0]);
+        $.ajax({
+                 url:API_URL+"upload_img",
+                type:"POST",
+                cache:false,
+                data:formata,
+                dataType:'json',
+                processData:false,
+               contentType:false,
+               success:function(data,status,xhr)
+               {
+                   console.log(data);
+                  if(data.status=='ok')
+                  {
+                      $('.chat-content').append('<div class="chat-text section-right flex"><span class="text"><i class="icon icon-sanjiao3 t-32"></i><img width="100px" height="100px" src="__ROOT__/uploads/'+data.img_name+'"></span><span class="char-img" style="background-image: url('+from_head_img+')"></span></div>');
+                      $('.chat-content').scrollTop($('.chat-content')[0].scrollHeight);
+                      var message='{"data":"'+data.img_name+'","type":"say_img","from_id":"'+from_id+'","to_id":"'+to_id+'"}';
+                      $("#file").val('');
+                      ws.send(message);
+                  }
+
+               }
+
+
+        });
+    })
+
+    $(function(){
+
+        $('.icon-emoji1').qqFace({
+
+            assign:'saytext',
+
+            path:'__STATIC__/qqFace/arclist/'	//表情存放的路径
+
+        });
+
+        $(".sub_btn").click(function(){
+
+            var str = $("#saytext").val();
+
+            $("#show").html(replace_em(str));
+
+        });
+
+    });
+
+
+    //查看结果
+
+    function replace_em(str){
+
+        str = str.replace(/\</g,'&lt;');
+
+        str = str.replace(/\>/g,'&gt;');
+
+        str = str.replace(/\n/g,'<br/>');
+
+        str = str.replace(/\[em_([0-9]*)\]/g,'<img src="__STATIC__/qqFace/arclist/$1.gif" border="0" />');
+
+        return str;
+
+    }
+
+    </script>
+</body>
+</html>
